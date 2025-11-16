@@ -1,19 +1,18 @@
-// app/_layout.tsx
 import React from "react";
-import { Slot } from "expo-router";
+import { NavigationContainer } from "@react-navigation/native";
 import { SQLiteProvider } from "expo-sqlite";
-import { StatusBar } from "expo-status-bar";
 
 import { initDb } from "../db/database";
 import { AuthProvider } from "../auth/AuthContext";
+import { AppNavigator } from "../navigation/AppNavigator";
 
-export default function RootLayout() {
+export default function App() {
   return (
     <SQLiteProvider databaseName="mtd_docs.db" onInit={initDb}>
       <AuthProvider>
-        {/* Фіксуємо світлу тему статус-бара */}
-        <StatusBar style="dark" />
-        <Slot />
+        <NavigationContainer>
+          <AppNavigator />
+        </NavigationContainer>
       </AuthProvider>
     </SQLiteProvider>
   );

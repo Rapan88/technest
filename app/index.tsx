@@ -8,13 +8,15 @@ import {
   ScrollView,
   Alert,
   TextInputProps,
+  StyleSheet,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth/AuthContext";
 
 const colors = {
-  bg: "#f3f4f6",
+  bg: "#0F9D58",      // зелений фон
   card: "#ffffff",
-  primary: "#2563eb",
+  primary: "#10B981", // зелена кнопка
   text: "#111827",
   muted: "#6b7280",
   border: "#e5e7eb",
@@ -43,7 +45,7 @@ const LabeledInput: React.FC<LabeledInputProps> = ({ label, ...props }) => (
         {
           borderWidth: 1,
           borderColor: colors.border,
-          borderRadius: 10,
+          borderRadius: 12,
           paddingHorizontal: 12,
           paddingVertical: 10,
           backgroundColor: colors.inputBg,
@@ -75,7 +77,7 @@ const PrimaryButton: React.FC<{
     borderColor = colors.primary;
   } else if (variant === "ghost") {
     backgroundColor = "transparent";
-    textColor = colors.primary;
+    textColor = "#ffffff";
   }
 
   return (
@@ -84,7 +86,7 @@ const PrimaryButton: React.FC<{
       style={{
         paddingVertical: 12,
         paddingHorizontal: 16,
-        borderRadius: 10,
+        borderRadius: 999,
         backgroundColor,
         borderWidth: borderColor === "transparent" ? 0 : 1,
         borderColor,
@@ -105,13 +107,14 @@ const PrimaryButton: React.FC<{
   );
 };
 
-export default function IndexScreen() {
+export default function Index() {
   const { user, loading, login, register, logout } = useAuth();
 
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const resetForm = () => {
     setUsername("");
@@ -152,7 +155,7 @@ export default function IndexScreen() {
     resetForm();
   };
 
-  // ---------- ЛОАДЕР ПРИ СТАРТІ ----------
+  // ---------- ЛОАДЕР ----------
   if (loading) {
     return (
       <View
@@ -163,39 +166,71 @@ export default function IndexScreen() {
           justifyContent: "center",
         }}
       >
-        <Text style={{ fontSize: 18, color: colors.muted }}>
-          Завантаження...
-        </Text>
+        <Text style={{ fontSize: 18, color: "#ECFDF5" }}>Завантаження...</Text>
       </View>
     );
   }
 
-  // ---------- ГОЛОВНИЙ ЕКРАН (користувач залогінений) ----------
+  // ---------- ГОЛОВНИЙ ЕКРАН (залогінений) ----------
   if (user) {
+    const menuItems = [
+      "Активи",
+      "Підтримка",
+      "Адміністрування",
+      "Інструменти",
+      "Налаштування",
+    ];
+
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        {/* Хедер */}
+        <View
+          style={{
+            paddingTop: 40,
+            paddingHorizontal: 16,
+            paddingBottom: 12,
+            flexDirection: "row",
+            alignItems: "center",
+          }}
+        >
+          <TouchableOpacity onPress={() => setIsMenuOpen(true)}>
+            <Ionicons name="menu" size={28} color="#ECFDF5" />
+          </TouchableOpacity>
+          <Text
+            style={{
+              marginLeft: 12,
+              fontSize: 20,
+              fontWeight: "700",
+              color: "#ECFDF5",
+            }}
+          >
+            TechNest
+          </Text>
+        </View>
+
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,
-            padding: 16,
+            paddingHorizontal: 16,
+            paddingBottom: 24,
           }}
         >
           <View
             style={{
               backgroundColor: colors.card,
-              borderRadius: 16,
+              borderRadius: 24,
               padding: 20,
               shadowColor: "#000",
-              shadowOpacity: 0.05,
-              shadowRadius: 10,
-              shadowOffset: { width: 0, height: 4 },
-              elevation: 3,
+              shadowOpacity: 0.15,
+              shadowRadius: 15,
+              shadowOffset: { width: 0, height: 8 },
+              elevation: 6,
             }}
           >
             <Text
               style={{
-                fontSize: 22,
-                fontWeight: "700",
+                fontSize: 24,
+                fontWeight: "800",
                 color: colors.text,
                 marginBottom: 8,
               }}
@@ -216,11 +251,12 @@ export default function IndexScreen() {
 
             <View
               style={{
-                borderRadius: 12,
+                borderRadius: 16,
                 borderWidth: 1,
                 borderColor: colors.border,
                 padding: 12,
                 marginBottom: 16,
+                backgroundColor: "#F9FAFB",
               }}
             >
               <Text
@@ -247,31 +283,108 @@ export default function IndexScreen() {
             <PrimaryButton title="Вийти з акаунта" onPress={logout} />
           </View>
         </ScrollView>
+
+        {/* Сайд-меню */}
+        {isMenuOpen && (
+          <View style={StyleSheet.absoluteFillObject}>
+            {/* напівпрозорий фон */}
+            <TouchableOpacity
+              style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)" }}
+              activeOpacity={1}
+              onPress={() => setIsMenuOpen(false)}
+            />
+
+            {/* панель зліва */}
+            <View
+              style={{
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: 0,
+                width: "70%",
+                backgroundColor: "#ffffff",
+                paddingTop: 48,
+                paddingHorizontal: 16,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 22,
+                  fontWeight: "700",
+                  marginBottom: 24,
+                  color: colors.text,
+                }}
+              >
+                Меню
+              </Text>
+
+              {menuItems.map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  style={{ paddingVertical: 12 }}
+                  onPress={() => {
+                    // тут потім вставиш навігацію на екрани
+                    Alert.alert(item, "Тут буде перехід на відповідний екран");
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <Text style={{ fontSize: 16, color: colors.text }}>
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
       </View>
     );
   }
 
-  // ---------- ЕКРАН ЛОГІН / РЕЄСТРАЦІЯ ----------
+  // ---------- ЛОГІН / РЕЄСТРАЦІЯ ----------
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
-          padding: 16,
+          paddingHorizontal: 16,
           justifyContent: "center",
         }}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={{ marginBottom: 24, alignItems: "center" }}>
+          <Text
+            style={{
+              fontSize: 32,
+              fontWeight: "800",
+              color: "#ECFDF5",
+              letterSpacing: 1,
+            }}
+          >
+            TechNest
+          </Text>
+          <Text
+            style={{
+              fontSize: 14,
+              color: "#D1FAE5",
+              marginTop: 4,
+              textAlign: "center",
+            }}
+          >
+            Мобільний застосунок для ведення{"\n"}
+            технічної документації МТЗ
+          </Text>
+        </View>
+
         <View
           style={{
             backgroundColor: colors.card,
-            borderRadius: 16,
+            borderRadius: 24,
             padding: 20,
             shadowColor: "#000",
-            shadowOpacity: 0.05,
-            shadowRadius: 10,
-            shadowOffset: { width: 0, height: 4 },
-            elevation: 3,
+            shadowOpacity: 0.18,
+            shadowRadius: 18,
+            shadowOffset: { width: 0, height: 10 },
+            elevation: 6,
           }}
         >
           <Text
@@ -279,7 +392,8 @@ export default function IndexScreen() {
               fontSize: 22,
               fontWeight: "700",
               color: colors.text,
-              marginBottom: 8,
+              marginBottom: 4,
+              textAlign: "center",
             }}
           >
             {mode === "login"
@@ -291,6 +405,7 @@ export default function IndexScreen() {
               fontSize: 14,
               color: colors.muted,
               marginBottom: 16,
+              textAlign: "center",
             }}
           >
             {mode === "login"

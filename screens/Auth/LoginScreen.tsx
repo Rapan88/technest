@@ -1,65 +1,139 @@
-// src/screens/Auth/LoginScreen.tsx
-import React, { useState } from "react";
-import { View, Text, TextInput, Button, Alert } from "react-native";
-import { useAuth } from "../../auth/AuthContext";
 
-export const LoginScreen: React.FC<any> = ({ navigation }) => {
-  const { login } = useAuth();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+import React from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-  const handleLogin = async () => {
-    if (!username || !password) {
-      Alert.alert("Помилка", "Введіть логін і пароль");
-      return;
-    }
-
-    const success = await login(username, password);
-    if (!success) {
-      Alert.alert("Помилка", "Невірний логін або пароль");
-    }
-  };
-
+const LoginScreen = () => {
   return (
-    <View style={{ flex: 1, padding: 16, justifyContent: "center" }}>
-      <Text style={{ fontSize: 24, fontWeight: "600", marginBottom: 24 }}>
-        Вхід до системи
-      </Text>
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        style={styles.safe}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {/* Зелений фон */}
+        <View style={styles.container}>
+          {/* "Картка" з формою */}
+          <View style={styles.card}>
+            <Text style={styles.logoText}>TechNest</Text>
+            <Text style={styles.subtitle}>Увійди в свій акаунт</Text>
 
-      <Text>Логін</Text>
-      <TextInput
-        style={{
-          borderWidth: 1,
-          borderRadius: 8,
-          padding: 8,
-          marginBottom: 12,
-        }}
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-      />
+            <View style={styles.inputsWrapper}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="example@gmail.com"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="email-address"
+              />
 
-      <Text>Пароль</Text>
-      <TextInput
-        style={{
-          borderWidth: 1,
-          borderRadius: 8,
-          padding: 8,
-          marginBottom: 12,
-        }}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+              <Text style={[styles.label, { marginTop: 16 }]}>Пароль</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor="#9CA3AF"
+                secureTextEntry
+              />
+            </View>
 
-      <Button title="Увійти" onPress={handleLogin} />
+            <TouchableOpacity style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Увійти</Text>
+            </TouchableOpacity>
 
-      <View style={{ marginTop: 16 }}>
-        <Button
-          title="Немає акаунта? Зареєструватися"
-          onPress={() => navigation.navigate("Register")}
-        />
-      </View>
-    </View>
+            <TouchableOpacity>
+              <Text style={styles.secondaryText}>
+                Ще немає акаунта? <Text style={styles.linkText}>Зареєструватися</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
+
+export default LoginScreen;
+
+const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: '#0F9D58', // зелений фон
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 28,
+    gap: 16,
+    // тінь для iOS
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    // тінь для Android
+    elevation: 6,
+  },
+  logoText: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#065F46',
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  inputsWrapper: {
+    marginTop: 8,
+  },
+  label: {
+    fontSize: 13,
+    color: '#4B5563',
+    marginBottom: 4,
+  },
+  input: {
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 12,
+    backgroundColor: '#F9FAFB',
+  },
+  primaryButton: {
+    marginTop: 20,
+    height: 46,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10B981', // зелена кнопка
+  },
+  primaryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryText: {
+    marginTop: 12,
+    textAlign: 'center',
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  linkText: {
+    fontWeight: '600',
+    color: '#059669',
+  },
+});

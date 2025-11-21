@@ -39,7 +39,10 @@
           }
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-web-browser",
+      "expo-mail-composer",
+      "expo-barcode-scanner"
     ],
     "experiments": {
       "typedRoutes": true,

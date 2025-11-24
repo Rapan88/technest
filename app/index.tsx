@@ -38,6 +38,7 @@ const colors = {
 type Section =
   | "Головна"
   | "Активи"
+  | "AI-помічник"
   | "Підтримка"
   | "Адміністрування"
   | "Друк"
@@ -98,6 +99,18 @@ type SupportTicket = {
   status: "Відкрито" | "В роботі" | "Закрито";
   createdAt: string;
 };
+
+type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  createdAt: string;
+};
+
+// ====== НАЛАШТУВАННЯ OPENAI ======
+const OPENAI_API_KEY =
+  "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"; // !!! заміни на свій ключ
+const OPENAI_MODEL = "gpt-4.1-mini"; // легший і дешевший, але норм для чату
 
 // демо-активи (5 пунктів по 15 записів)
 const createDemoAssets = (): AssetCategory[] => {
@@ -342,6 +355,10 @@ export default function Index() {
   const [ticketSubject, setTicketSubject] = useState("");
   const [ticketCategory, setTicketCategory] = useState("");
   const [ticketMessage, setTicketMessage] = useState("");
+
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isChatLoading, setIsChatLoading] = useState(false);
 
   // сканер
   const [hasCameraPermission, setHasCameraPermission] = useState<
@@ -670,7 +687,11 @@ export default function Index() {
 
   // дозвіл на камеру для сканера
   useEffect(() => {
-    if (user && activeSection === "Сканер" && hasCameraPermission === "unknown") {
+    if (
+      user &&
+      activeSection === "Сканер" &&
+      hasCameraPermission === "unknown"
+    ) {
       (async () => {
         try {
           const { status } = await BarCodeScanner.requestPermissionsAsync();
@@ -804,6 +825,115 @@ export default function Index() {
       )
     );
   };
+  // ================= AI-ПОМІЧНИК =================
+
+  // Виклик до OpenAI API
+  const callAiAssistant = async (userMessage: string): Promise<string> => {
+    if (!OPENAI_API_KEY || OPENAI_API_KEY === "ВСТАВ_СВІЙ_API_КЛЮЧ_ТУТ") {
+      return (
+        "AI-помічник ще не налаштований. " +
+        "Вкажіть свій OPENAI_API_KEY у константі OPENAI_API_KEY в файлі app/index.tsx."
+      );
+    }
+
+    // Формуємо короткий опис активів (щоб модель щось знала про базу)
+    const categorySummaries = assetCategories
+      .slice(0, 10) // щоб не посилати забагато
+      .map((cat) => {
+        const count = cat.items.length;
+        return `• ${cat.title}: ${count} од.`;
+      })
+      .join("\n");
+
+    const systemPrompt =
+      "Ти асистент з технічного обслуговування для мобільного застосунку " +
+      "ведення документації щодо експлуатації матеріально-технічного забезпечення (MTЗ). " +
+      "Відповідай українською, коротко й по суті. Якщо потрібні інструкції, давай їх по кроках.";
+
+    const userContent =
+      `Питання користувача:\n${userMessage}\n\n` +
+      `Короткий опис активів з бази:\n${
+        categorySummaries || "Активи відсутні."
+      }`;
+
+    const body = {
+      model: OPENAI_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+      temperature: 0.2,
+    };
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn("OpenAI error:", errorText);
+      return (
+        "Не вдалося отримати відповідь від AI-помічника. " +
+        "Перевірте інтернет та API-ключ. Код: " +
+        response.status
+      );
+    }
+
+    const data = await response.json();
+
+    const content =
+      data?.choices?.[0]?.message?.content?.toString?.() ||
+      "Не вдалося розпізнати відповідь моделі.";
+    return content;
+  };
+
+  // Надсилання повідомлення в чат
+  const handleSendChatMessage = async () => {
+    const text = chatInput.trim();
+    if (!text || isChatLoading) return;
+
+    setChatInput("");
+
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: "user",
+      text,
+      createdAt: new Date().toISOString(),
+    };
+    setChatMessages((prev) => [...prev, userMsg]);
+    setIsChatLoading(true);
+
+    try {
+      const aiText = await callAiAssistant(text);
+
+      const aiMsg: ChatMessage = {
+        id: Date.now().toString() + "-ai",
+        role: "assistant",
+        text: aiText,
+        createdAt: new Date().toISOString(),
+      };
+
+      setChatMessages((prev) => [...prev, aiMsg]);
+    } catch (e) {
+      console.warn("AI error", e);
+      const aiMsg: ChatMessage = {
+        id: Date.now().toString() + "-aierr",
+        role: "assistant",
+        text:
+          "Сталася помилка при зверненні до AI-помічника. " +
+          "Спробуйте ще раз пізніше.",
+        createdAt: new Date().toISOString(),
+      };
+      setChatMessages((prev) => [...prev, aiMsg]);
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
 
   // вибір активів для експорту
   const toggleExportAsset = (id: string) => {
@@ -812,9 +942,7 @@ export default function Index() {
     );
   };
   const selectAllAssetsForExport = () => {
-    const allIds = assetCategories.flatMap((cat) =>
-      cat.items.map((i) => i.id)
-    );
+    const allIds = assetCategories.flatMap((cat) => cat.items.map((i) => i.id));
     setSelectedExportAssetIds(allIds);
   };
   const clearExportSelection = () => setSelectedExportAssetIds([]);
@@ -897,10 +1025,7 @@ export default function Index() {
 
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
-        Alert.alert(
-          "Експорт",
-          "Файл збережено в пам'яті пристрою:\n" + uri
-        );
+        Alert.alert("Експорт", "Файл збережено в пам'яті пристрою:\n" + uri);
         return;
       }
 
@@ -980,6 +1105,7 @@ export default function Index() {
     const menuItems: Section[] = [
       "Головна",
       "Активи",
+      "AI-помічник",
       "Підтримка",
       "Адміністрування",
       "Друк",
@@ -1011,8 +1137,7 @@ export default function Index() {
               totalDocs += docsCount;
               totalServiceRecords += histCount;
 
-              const status =
-                (item.status?.trim() || "Без статусу") as string;
+              const status = (item.status?.trim() || "Без статусу") as string;
               statusMap[status] = (statusMap[status] ?? 0) + 1;
               if (status.toLowerCase().includes("ремонт")) {
                 assetsWithIssues += 1;
@@ -1161,9 +1286,7 @@ export default function Index() {
                           >
                             {name}
                           </Text>
-                          <Text
-                            style={{ fontSize: 12, color: colors.muted }}
-                          >
+                          <Text style={{ fontSize: 12, color: colors.muted }}>
                             {count} од. ({percent}%)
                           </Text>
                         </View>
@@ -1214,8 +1337,7 @@ export default function Index() {
 
                 {categoryStats.length === 0 ? (
                   <Text style={{ color: colors.muted }}>
-                    Поки що немає жодного пункту. Додайте їх у розділі
-                    "Активи".
+                    Поки що немає жодного пункту. Додайте їх у розділі "Активи".
                   </Text>
                 ) : (
                   categoryStats.slice(0, 6).map((c) => {
@@ -1242,9 +1364,7 @@ export default function Index() {
                           >
                             {c.title}
                           </Text>
-                          <Text
-                            style={{ fontSize: 12, color: colors.muted }}
-                          >
+                          <Text style={{ fontSize: 12, color: colors.muted }}>
                             {c.assets} од. ({p}%)
                           </Text>
                         </View>
@@ -1496,11 +1616,7 @@ export default function Index() {
                         key={f.key}
                         onPress={() =>
                           setAssetStatusFilter(
-                            f.key as
-                              | "all"
-                              | "inUse"
-                              | "inRepair"
-                              | "noStatus"
+                            f.key as "all" | "inUse" | "inRepair" | "noStatus"
                           )
                         }
                         style={{
@@ -2001,9 +2117,7 @@ export default function Index() {
                     </Text>
 
                     {docs.length === 0 ? (
-                      <Text
-                        style={{ color: colors.muted, marginBottom: 8 }}
-                      >
+                      <Text style={{ color: colors.muted, marginBottom: 8 }}>
                         Документи ще не додані.
                       </Text>
                     ) : (
@@ -2089,9 +2203,7 @@ export default function Index() {
                       }}
                     >
                       {history.length === 0 ? (
-                        <Text
-                          style={{ color: colors.muted, marginBottom: 4 }}
-                        >
+                        <Text style={{ color: colors.muted, marginBottom: 4 }}>
                           Записів про обслуговування ще немає.
                         </Text>
                       ) : (
@@ -2202,9 +2314,7 @@ export default function Index() {
                                   setEditingServiceId(rec.id);
                                   setNewServiceType(rec.serviceType);
                                   setNewServiceDate(rec.date);
-                                  setNewServiceMileage(
-                                    rec.mileageHours ?? ""
-                                  );
+                                  setNewServiceMileage(rec.mileageHours ?? "");
                                   setNewServiceWork(rec.workList ?? "");
                                   setNewServiceParts(rec.partsList ?? "");
                                   setNewServiceResponsible(
@@ -2337,9 +2447,7 @@ export default function Index() {
                           <View style={{ flex: 1, marginLeft: 4 }}>
                             <PrimaryButton
                               title={
-                                editingServiceId
-                                  ? "Зберегти зміни"
-                                  : "Зберегти"
+                                editingServiceId ? "Зберегти зміни" : "Зберегти"
                               }
                               onPress={() => {
                                 if (
@@ -2366,8 +2474,7 @@ export default function Index() {
                                   responsible: newServiceResponsible.trim(),
                                   nextService: newServiceNext.trim(),
                                   comment: newServiceComment.trim(),
-                                  photoUri:
-                                    newServicePhoto.trim() || undefined,
+                                  photoUri: newServicePhoto.trim() || undefined,
                                 };
 
                                 if (editingServiceId) {
@@ -2414,6 +2521,155 @@ export default function Index() {
 
           return null;
         }
+
+        case "AI-помічник":
+          return (
+            <>
+              <Text
+                style={{
+                  fontSize: 22,
+                  fontWeight: "700",
+                  color: colors.text,
+                  marginBottom: 8,
+                }}
+              >
+                AI-помічник (ChatGPT)
+              </Text>
+
+              <Text
+                style={{
+                  color: colors.muted,
+                  marginBottom: 12,
+                  fontSize: 14,
+                }}
+              >
+                Тут ви можете поставити питання щодо експлуатації та
+                обслуговування техніки, пошуку активів, планування ТО тощо.
+                AI-помічник використовує узагальнену інформацію з розділу
+                «Активи» та модель {OPENAI_MODEL}.
+              </Text>
+
+              <View
+                style={{
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  padding: 12,
+                  backgroundColor: colors.inputBg,
+                  marginBottom: 12,
+                  maxHeight: 360,
+                }}
+              >
+                {chatMessages.length === 0 ? (
+                  <Text style={{ color: colors.muted, fontSize: 14 }}>
+                    Почніть діалог, наприклад:
+                    {"\n"}• "Що потрібно перевірити при ТО генератора?"
+                    {"\n"}• "Як краще організувати облік комп’ютерної техніки?"
+                    {"\n"}• "Скільки активів у мене в базі та які категорії?"
+                  </Text>
+                ) : (
+                  <ScrollView>
+                    {chatMessages.map((m) => (
+                      <View
+                        key={m.id}
+                        style={{
+                          alignSelf:
+                            m.role === "user" ? "flex-end" : "flex-start",
+                          backgroundColor:
+                            m.role === "user" ? colors.primary : colors.card,
+                          borderRadius: 16,
+                          paddingHorizontal: 10,
+                          paddingVertical: 8,
+                          marginBottom: 8,
+                          maxWidth: "85%",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: m.role === "user" ? colors.bg : colors.muted,
+                            marginBottom: 2,
+                            fontWeight: "600",
+                          }}
+                        >
+                          {m.role === "user" ? "Ви" : "AI"}
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            color: m.role === "user" ? colors.bg : colors.text,
+                          }}
+                        >
+                          {m.text}
+                        </Text>
+                      </View>
+                    ))}
+
+                    {isChatLoading && (
+                      <View
+                        style={{
+                          alignSelf: "flex-start",
+                          backgroundColor: colors.card,
+                          borderRadius: 16,
+                          paddingHorizontal: 10,
+                          paddingVertical: 8,
+                          marginBottom: 8,
+                          maxWidth: "85%",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: colors.muted,
+                          }}
+                        >
+                          AI друкує відповідь...
+                        </Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                )}
+              </View>
+
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  backgroundColor: colors.inputBg,
+                }}
+              >
+                <TextInput
+                  style={{
+                    flex: 1,
+                    fontSize: 14,
+                    color: colors.text,
+                    paddingVertical: 6,
+                  }}
+                  placeholder="Ваше питання..."
+                  placeholderTextColor={colors.muted}
+                  value={chatInput}
+                  onChangeText={setChatInput}
+                  onSubmitEditing={handleSendChatMessage}
+                  returnKeyType="send"
+                />
+                <TouchableOpacity
+                  onPress={handleSendChatMessage}
+                  disabled={isChatLoading || !chatInput.trim()}
+                  style={{
+                    marginLeft: 8,
+                    opacity: isChatLoading || !chatInput.trim() ? 0.5 : 1,
+                  }}
+                >
+                  <Ionicons name="send" size={20} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+            </>
+          );
 
         case "Підтримка":
           return (
@@ -2726,9 +2982,8 @@ export default function Index() {
                   marginBottom: 12,
                 }}
               >
-                Згенеруйте CSV-файл (відкривається в Excel) з переліком
-                активів. Якщо нічого не обрано — будуть експортовані всі
-                активи.
+                Згенеруйте CSV-файл (відкривається в Excel) з переліком активів.
+                Якщо нічого не обрано — будуть експортовані всі активи.
               </Text>
 
               <View
@@ -2923,7 +3178,9 @@ export default function Index() {
                     <BarCodeScanner
                       style={{ flex: 1 }}
                       onBarCodeScanned={
-                        qrScanned ? undefined : ({ data }) => handleQrScanned(data)
+                        qrScanned
+                          ? undefined
+                          : ({ data }) => handleQrScanned(data)
                       }
                     />
                   </View>
@@ -2932,7 +3189,11 @@ export default function Index() {
 
               <View style={{ marginBottom: 12 }}>
                 <PrimaryButton
-                  title={qrScanned ? "Сканувати ще раз" : "Оновити дозвіл / сканувати"}
+                  title={
+                    qrScanned
+                      ? "Сканувати ще раз"
+                      : "Оновити дозвіл / сканувати"
+                  }
                   onPress={async () => {
                     setQrScanned(false);
                     setLastScannedValue(null);
@@ -3350,9 +3611,7 @@ export default function Index() {
               textAlign: "center",
             }}
           >
-            {mode === "login"
-              ? "Вхід до системи"
-              : "Реєстрація користувача"}
+            {mode === "login" ? "Вхід до системи" : "Реєстрація користувача"}
           </Text>
           <Text
             style={{
@@ -3397,10 +3656,7 @@ export default function Index() {
             {mode === "login" ? (
               <PrimaryButton title="Увійти" onPress={handleLogin} />
             ) : (
-              <PrimaryButton
-                title="Зареєструватися"
-                onPress={handleRegister}
-              />
+              <PrimaryButton title="Зареєструватися" onPress={handleRegister} />
             )}
           </View>
 

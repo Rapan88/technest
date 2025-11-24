@@ -108,8 +108,6 @@ type ChatMessage = {
 };
 
 // ====== НАЛАШТУВАННЯ OPENAI ======
-const OPENAI_API_KEY =
-  "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"; // !!! заміни на свій ключ
 const OPENAI_MODEL = "gpt-4.1-mini"; // легший і дешевший, але норм для чату
 
 // демо-активи (5 пунктів по 15 записів)
